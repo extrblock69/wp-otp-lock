@@ -31,15 +31,28 @@ The registration code request is performed via a GET request to the WhatsApp mob
 - **Method**: GET
 - **Headers**:
     - `User-Agent`: `WhatsApp/2.22.24.81 iOS/15.3.1 Device/Apple-iPhone_7`
-- **Query Parameters**:
-    - `cc`: Phone number country code.
-    - `in`: National phone number.
-    - `authkey`, `e_regid`, `e_ident`, `e_skey_id`, `e_skey_val`, `e_skey_sig`: Cryptographic keys and IDs used to simulate a legitimate mobile device registration.
-    - `id`: A random percentage-encoded identity ID.
-    - `token`: A security token generated as `md5(MOBILE_TOKEN + national_number)`. The `MOBILE_TOKEN` used in this bot is `0a1mLfGUIBVrMKF1RdvLI5lkRBvof6vn0fD2QRSM4174c0243f5277a5d7720ce842cc4ae6`.
-    - `mcc`, `mnc`: Mobile Country Code and Network Code.
+- **Query Parameters and Data Origin**:
+    - `cc`: Phone number country code (User input).
+    - `in`: National phone number (User input).
+    - `authkey`: Base64url of a public Noise key generated via Curve25519.
+    - `e_regid`: Base64url of a 4-byte buffer containing a random `registrationId`.
+    - `e_ident`: Base64url of the public `signedIdentityKey`.
+    - `e_skey_id`: Hardcoded to `'AAAA'`.
+    - `e_skey_val`: Base64url of the public `signedPreKey`.
+    - `e_skey_sig`: Base64url of the `signedPreKey` signature.
+    - `fdid`: `phoneId` (a random UUID v4).
+    - `expid`: `deviceId` (a random UUID v4, hex-stripped and base64url encoded).
+    - `id`: Percentage-encoded `identityId` (random 20 bytes).
+    - `backup_token`: Percentage-encoded `backupToken` (random 20 bytes).
+    - `token`: A security token generated as `md5(MOBILE_TOKEN + national_number)`. The `MOBILE_TOKEN` is a hardcoded 72-character string: `0a1mLfGUIBVrMKF1RdvLI5lkRBvof6vn0fD2QRSM4174c0243f5277a5d7720ce842cc4ae6`.
+    - `mcc`, `mnc`: Mobile Country Code and Network Code (derived from the phone number or defaults).
     - `method`: Defaults to `sms`.
     - `hasav`: `1`
+
+#### Source of Parameters (`lib/Utils/auth-utils.js`)
+The keys and IDs are initialized in the `initAuthCreds` function:
+- **Keys**: Generated using `Curve.generateKeyPair()` which produces a private/public pair.
+- **IDs**: Generated using standard random byte generators (`crypto.randomBytes(20)`) or UUID libraries.
 
 #### Attack Logic
 In `venom.js`, when the `temp-cod` command is used, it enters an infinite loop:
