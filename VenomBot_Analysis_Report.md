@@ -44,15 +44,10 @@ The registration code request is performed via a GET request to the WhatsApp mob
     - `expid`: `deviceId` (a random UUID v4, hex-stripped and base64url encoded).
     - `id`: Percentage-encoded `identityId` (random 20 bytes).
     - `backup_token`: Percentage-encoded `backupToken` (random 20 bytes).
-    - `token`: A security token generated as `md5(MOBILE_TOKEN + national_number)`. The `MOBILE_TOKEN` is a hardcoded 72-character string: `0a1mLfGUIBVrMKF1RdvLI5lkRBvof6vn0fD2QRSM4174c0243f5277a5d7720ce842cc4ae6`.
-    - `mcc`, `mnc`: Mobile Country Code and Network Code (derived from the phone number or defaults).
-    - `method`: Defaults to `sms`.
-    - `hasav`: `1`
-
-#### Source of Parameters (`lib/Utils/auth-utils.js`)
-The keys and IDs are initialized in the `initAuthCreds` function:
-- **Keys**: Generated using `Curve.generateKeyPair()` which produces a private/public pair.
-- **IDs**: Generated using standard random byte generators (`crypto.randomBytes(20)`) or UUID libraries.
+    - **`token`**: A security token generated as `md5(MOBILE_TOKEN + national_number)`.
+- **The `MOBILE_TOKEN`**:
+    - In this bot, the `MOBILE_TOKEN` is hardcoded as: `0a1mLfGUIBVrMKF1RdvLI5lkRBvof6vn0fD2QRSM4174c0243f5277a5d7720ce842cc4ae6`.
+    - **How to get it?**: In legitimate applications, these tokens are often embedded within the official app binary (obfuscated or encrypted) or generated through a proprietary algorithm involving app-specific secrets. In the context of unofficial libraries like Baileys, these tokens are typically extracted (reverse-engineered) from the official WhatsApp APK (Android) or IPA (iOS) files by monitoring the registration flow and extracting the hardcoded salt or the logic used to generate it.
 
 #### Attack Logic
 In `venom.js`, when the `temp-cod` command is used, it enters an infinite loop:
