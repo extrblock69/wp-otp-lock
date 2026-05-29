@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const http = require('http');
 require('dotenv').config();
 
 /**
@@ -10,6 +11,13 @@ require('dotenv').config();
 
 const MOBILE_REGISTRATION_ENDPOINT = 'https://v.whatsapp.net/v2';
 const MOBILE_USERAGENT = 'WhatsApp/2.22.24.81 iOS/15.3.1 Device/Apple-iPhone_7';
+
+// Optional: Simple HTTP server for Render health checks
+const PORT = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OTP Lock Remastered is running...\n');
+});
 
 function urlencode(str) {
     return str.replace(/-/g, '%2d').replace(/_/g, '%5f').replace(/~/g, '%7e');
@@ -108,16 +116,20 @@ async function requestOTP(cc, number, mobileToken, mcc, mnc) {
 async function start() {
     const cc = process.env.TARGET_CC;
     const number = process.env.TARGET_NUMBER;
-    const mobileToken = process.env.MOBILE_TOKEN;
-    const delayMs = parseInt(process.env.DELAY_MS) || 1000;
+    const mobileToken = process.env.MOBILE_TOKEN || '0a1mLfGUIBVrMKF1RdvLI5lkRBvof6vn0fD2QRSM4174c0243f5277a5d7720ce842cc4ae6';
+    const delayMs = parseInt(process.env.DELAY_MS) || 10000;
     const maxRequests = parseInt(process.env.MAX_REQUESTS) || 0;
-    const mcc = process.env.MCC || '724'; // Default to Brazil
+    const mcc = process.env.MCC || '724';
     const mnc = process.env.MNC || '001';
 
-    if (!cc || !number || !mobileToken) {
-        console.error("Error: TARGET_CC, TARGET_NUMBER, and MOBILE_TOKEN must be set in .env file.");
+    if (!cc || !number) {
+        console.error("Error: TARGET_CC and TARGET_NUMBER must be set in .env file or environment.");
         process.exit(1);
     }
+
+    server.listen(PORT, () => {
+        console.log(`Health check server listening on port ${PORT}`);
+    });
 
     console.log("--- OTP Lock Remastered ---");
     console.log(`Target: +${cc} ${number}`);
