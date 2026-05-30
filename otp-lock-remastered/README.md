@@ -1,30 +1,51 @@
 # OTP Lock Remastered
 
-This project mimics the WhatsApp registration code request logic.
+A fully functional, standalone WhatsApp OTP registration code request mimicry system with a modern Preact web interface.
 
-## Deployment to Render
+## Project Structure
+- `backend/`: Express.js server that handles the registration API logic and task management.
+- `frontend/`: Preact + Vite application for the user interface.
 
-1.  **Upload to GitHub**:
-    *   Create a new repository on GitHub.
-    *   Initialize git in the `otp-lock-remastered` folder: `git init`.
-    *   Add files: `git add .`.
-    *   Commit: `git commit -m "Initial commit"`.
-    *   Link to your GitHub repo and push.
+## Features
+- **Standalone Logic**: No dependency on the Baileys library.
+- **Modern UI**: Dark theme, mobile-responsive interface.
+- **Security**: Password-protected access (configured via environment variables).
+- **Concurrency**: Support for sending multiple requests in parallel.
+- **Configurable**: Adjustable delays and request limits.
+- **Real-time Logs**: View the status of each request directly in the dashboard.
 
-2.  **Create Render Web Service**:
-    *   Go to [dashboard.render.com](https://dashboard.render.com).
-    *   Click **New +** -> **Web Service**.
-    *   Connect your GitHub repository.
-    *   **Build Command**: `npm install`
-    *   **Start Command**: `npm start`
+## Deployment
 
-3.  **Configure Environment Variables**:
-    In the Render dashboard, go to the **Environment** tab and add the following:
-    *   `TARGET_CC`: The country code (e.g., `55`).
-    *   `TARGET_NUMBER`: The phone number (e.g., `9784388523`).
-    *   `DELAY_MS`: Delay between requests in ms (default: `10000`).
-    *   `MAX_REQUESTS`: Max number of requests (default: `0` for infinite).
-    *   `MOBILE_TOKEN`: The hardcoded token from the report (provided by default in `index.js`).
+### Backend (Render)
+1. Create a new **Web Service** on Render.
+2. Root Directory: `backend`
+3. Build Command: `npm install`
+4. Start Command: `node index.js`
+5. Environment Variables:
+   - `PORT`: 3000 (default)
+   - `ACCESS_PASSWORD`: Your chosen password.
+   - `MOBILE_TOKEN`: (Optional) Custom salt for token generation.
+
+### Frontend (Vercel)
+1. Create a new project on Vercel.
+2. Root Directory: `frontend`
+3. Framework Preset: `Vite`
+4. Environment Variables:
+   - `VITE_BACKEND_URL`: The URL of your Render backend (e.g., `https://your-backend.onrender.com`).
+
+## Configuration (.env)
+You can also run locally by creating `.env` files in the respective directories.
+
+**Backend `.env`**:
+```
+PORT=3000
+ACCESS_PASSWORD=admin123
+```
+
+**Frontend `.env`**:
+```
+VITE_BACKEND_URL=http://localhost:3000
+```
 
 ## Disclaimer
 This tool is for educational purposes only. Use it responsibly and at your own risk.
