@@ -2,8 +2,14 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [preact({
+    devToolsEnabled: false,
+    prefreshEnabled: false,
+    reactAliasesEnabled: false,
+  })],
   server: {
-    port: 5173,
+    hmr: {
+      overlay: false
+    }
   }
 });

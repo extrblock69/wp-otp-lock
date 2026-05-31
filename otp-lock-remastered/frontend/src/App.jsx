@@ -18,6 +18,9 @@ export function App() {
   const [logs, setLogs] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [error, setError] = useState('');
+  const [view, setView] = useState('home'); // 'home' or 'proxies'
+  const [proxiesList, setProxiesList] = useState([]);
+  const [newProxyUrl, setNewProxyUrl] = useState('');
 
   // Auto-refresh status and logs
   useEffect(() => {
@@ -30,13 +33,16 @@ export function App() {
         });
         setIsRunning(res.data.isRunning);
         setLogs(res.data.logs);
+        if (view === 'proxies') {
+            setProxiesList(res.data.proxies);
+        }
       } catch (err) {
         console.error('Failed to fetch status');
       }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, password]);
+  }, [isAuthenticated, password, view]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -73,6 +79,44 @@ export function App() {
     }
   };
 
+  const handleAddProxy = async (e) => {
+    e.preventDefault();
+    try {
+        await axios.post(`${BACKEND_URL}/proxies`, { url: newProxyUrl }, {
+            headers: { 'x-password': password }
+        });
+        setNewProxyUrl('');
+        // Refresh list
+        const res = await axios.get(`${BACKEND_URL}/proxies`, {
+            headers: { 'x-password': password }
+        });
+        setProxiesList(res.data);
+    } catch (err) {
+        setError('Failed to add proxy');
+    }
+  };
+
+  const handleDeleteProxy = async (id) => {
+    try {
+        await axios.delete(`${BACKEND_URL}/proxies/${id}`, {
+            headers: { 'x-password': password }
+        });
+        setProxiesList(proxiesList.filter(p => p.id !== id));
+    } catch (err) {
+        setError('Failed to delete proxy');
+    }
+  };
+
+  const handleCheckAllProxies = async () => {
+    try {
+        await axios.post(`${BACKEND_URL}/proxies/check-all`, {}, {
+            headers: { 'x-password': password }
+        });
+    } catch (err) {
+        setError('Failed to check proxies');
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div class="container">
@@ -96,6 +140,12 @@ export function App() {
         <div class="hamburger" onClick={() => setMenuOpen(!menuOpen)}>☰</div>
 
         <div class={`menu ${menuOpen ? 'active' : ''}`}>
+          <h3>Navigation</h3>
+          <button class="btn-secondary" style={{marginBottom: '10px'}} onClick={() => { setView('home'); setMenuOpen(false); }}>Home</button>
+          <button class="btn-secondary" style={{marginBottom: '10px'}} onClick={() => { setView('proxies'); setMenuOpen(false); }}>Proxies</button>
+
+          <hr style={{margin: '20px 0'}} />
+
           <h3>Advanced Settings</h3>
           <div class="form-group">
             <label>Concurrency</label>
@@ -120,32 +170,69 @@ export function App() {
           <button class="btn-secondary" onClick={() => setMenuOpen(false)}>Save & Close</button>
         </div>
 
-        <h1>Control Panel</h1>
+        {view === 'home' ? (
+          <>
+            <h1>Control Panel</h1>
 
-        <div class={`status-indicator ${isRunning ? 'running' : 'stopped'}`}>
-          Status: {isRunning ? 'RUNNING' : 'STOPPED'}
-        </div>
+            <div class={`status-indicator ${isRunning ? 'running' : 'stopped'}`}>
+              Status: {isRunning ? 'RUNNING' : 'STOPPED'}
+            </div>
 
-        <div class="form-group">
-          <label>Country Code (DDI)</label>
-          <input type="text" value={cc} onInput={e => setCc(e.target.value)} disabled={isRunning} />
-        </div>
+            <div class="form-group">
+              <label>Country Code (DDI)</label>
+              <input type="text" value={cc} onInput={e => setCc(e.target.value)} disabled={isRunning} />
+            </div>
 
-        <div class="form-group">
-          <label>Phone Number</label>
-          <input type="text" value={number} onInput={e => setNumber(e.target.value)} placeholder="e.g. 9784388523" disabled={isRunning} />
-        </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="text" value={number} onInput={e => setNumber(e.target.value)} placeholder="e.g. 9784388523" disabled={isRunning} />
+            </div>
 
-        {!isRunning ? (
-          <button class="btn-primary" onClick={handleStart}>START ATTACK</button>
+            {!isRunning ? (
+              <button class="btn-primary" onClick={handleStart}>START ATTACK</button>
+            ) : (
+              <button class="btn-error" onClick={handleStop}>STOP ATTACK</button>
+            )}
+
+            <div class="logs">
+              {logs.length === 0 && <div>Waiting for logs...</div>}
+              {logs.map((log, i) => <div key={i}>{log}</div>)}
+            </div>
+          </>
         ) : (
-          <button class="btn-error" onClick={handleStop}>STOP ATTACK</button>
-        )}
+          <>
+            <h1>Proxy Management</h1>
 
-        <div class="logs">
-          {logs.length === 0 && <div>Waiting for logs...</div>}
-          {logs.map((log, i) => <div key={i}>{log}</div>)}
-        </div>
+            <form onSubmit={handleAddProxy}>
+              <div class="form-group">
+                <label>Add New Proxy (URL)</label>
+                <div style={{display: 'flex', gap: '10px'}}>
+                  <input type="text" value={newProxyUrl} onInput={e => setNewProxyUrl(e.target.value)} placeholder="http://user:pass@host:port" required />
+                  <button type="submit" class="btn-primary" style={{width: 'auto'}}>Add</button>
+                </div>
+              </div>
+            </form>
+
+            <button class="btn-secondary" onClick={handleCheckAllProxies} style={{margin: '10px 0'}}>Health Check All</button>
+
+            <div class="proxy-list" style={{marginTop: '20px', maxHeight: '300px', overflowY: 'auto'}}>
+                {proxiesList.length === 0 && <p>No proxies added.</p>}
+                {proxiesList.map(p => (
+                    <div key={p.id} class="card" style={{padding: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#333'}}>
+                        <div>
+                            <div style={{fontSize: '0.8em', color: '#888'}}>{p.url}</div>
+                            <div style={{fontSize: '0.9em', color: p.status === 'active' ? '#4CAF50' : p.status === 'dead' ? '#F44336' : '#888'}}>
+                                Status: {p.status} {p.lastChecked ? `(Checked: ${new Date(p.lastChecked).toLocaleTimeString()})` : ''}
+                            </div>
+                        </div>
+                        <button class="btn-error" style={{width: 'auto', padding: '5px 10px'}} onClick={() => handleDeleteProxy(p.id)}>X</button>
+                    </div>
+                ))}
+            </div>
+
+            <button class="btn-secondary" onClick={() => setView('home')} style={{marginTop: '20px'}}>Back to Home</button>
+          </>
+        )}
       </div>
     </div>
   );
