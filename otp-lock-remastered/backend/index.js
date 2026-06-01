@@ -31,7 +31,7 @@ function addLog(message) {
 
 // Utility functions for registration
 const MOBILE_REGISTRATION_ENDPOINT = 'https://v.whatsapp.net/v2';
-const MOBILE_USERAGENT = 'WhatsApp/2.23.12.78 Android/13 Device/samsung-SM-G991B';
+const MOBILE_USERAGENT = 'WhatsApp/2.22.24.81 iOS/15.3.1 Device/Apple-iPhone_7';
 
 function urlencode(str) {
     return str.replace(/-/g, '%2d').replace(/_/g, '%5f').replace(/~/g, '%7e');
