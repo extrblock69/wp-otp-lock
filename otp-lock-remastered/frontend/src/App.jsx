@@ -12,6 +12,8 @@ export function App() {
   const [maxRequests, setMaxRequests] = useState('0');
   const [concurrency, setConcurrency] = useState('1');
   const [mobileToken, setMobileToken] = useState('');
+  const [mcc, setMcc] = useState('');
+  const [mnc, setMnc] = useState('');
   const [proxy, setProxy] = useState('');
 
   const [isRunning, setIsRunning] = useState(false);
@@ -58,7 +60,7 @@ export function App() {
   const handleStart = async () => {
     try {
       await axios.post(`${BACKEND_URL}/start`, {
-        cc, number, delay, maxRequests, concurrency, mobileToken
+        cc, number, delay, maxRequests, concurrency, mobileToken, mcc, mnc
       }, {
         headers: { 'x-password': password }
       });
@@ -86,13 +88,14 @@ export function App() {
             headers: { 'x-password': password }
         });
         setNewProxyUrl('');
+        setError('');
         // Refresh list
         const res = await axios.get(`${BACKEND_URL}/proxies`, {
             headers: { 'x-password': password }
         });
         setProxiesList(res.data);
     } catch (err) {
-        setError('Failed to add proxy');
+        setError(err.response?.data?.error || 'Failed to add proxy');
     }
   };
 
@@ -160,12 +163,18 @@ export function App() {
             <input type="number" value={delay} onInput={e => setDelay(e.target.value)} />
           </div>
           <div class="form-group">
-            <label>Proxy (URL)</label>
-            <input type="text" value={proxy} onInput={e => setProxy(e.target.value)} placeholder="http://user:pass@host:port" />
-          </div>
-          <div class="form-group">
             <label>Custom Mobile Token</label>
             <input type="text" value={mobileToken} onInput={e => setMobileToken(e.target.value)} placeholder="Keep empty for default" />
+          </div>
+          <div style={{display: 'flex', gap: '10px'}}>
+            <div class="form-group" style={{flex: 1}}>
+              <label>MCC</label>
+              <input type="text" value={mcc} onInput={e => setMcc(e.target.value)} placeholder="Auto" />
+            </div>
+            <div class="form-group" style={{flex: 1}}>
+              <label>MNC</label>
+              <input type="text" value={mnc} onInput={e => setMnc(e.target.value)} placeholder="001" />
+            </div>
           </div>
           <button class="btn-secondary" onClick={() => setMenuOpen(false)}>Save & Close</button>
         </div>
@@ -202,7 +211,7 @@ export function App() {
         ) : (
           <>
             <h1>Proxy Management</h1>
-
+            {error && <p style={{color: 'red', textAlign: 'center', background: 'rgba(255,0,0,0.1)', padding: '10px', borderRadius: '4px'}}>{error}</p>}
             <form onSubmit={handleAddProxy}>
               <div class="form-group">
                 <label>Add New Proxy (URL)</label>
