@@ -31,7 +31,8 @@ function addLog(message) {
 
 // Utility functions for registration
 const MOBILE_REGISTRATION_ENDPOINT = 'https://v.whatsapp.net/v2';
-const MOBILE_USERAGENT = 'WhatsApp/2.23.12.78 Android/13 Device/samsung-SM-G991B';
+// Verified working version as of June 2026 for registration API v2
+const MOBILE_USERAGENT = 'WhatsApp/2.24.27.80 Android/14 Device/samsung-SM-S928B';
 
 function urlencode(str) {
     return str.replace(/-/g, '%2d').replace(/_/g, '%5f').replace(/~/g, '%7e');
@@ -70,8 +71,9 @@ async function requestOTP(cc, number, session, proxyUrl = null) {
         fdid: session.fdid, network_ratio_type: '1', expid: session.expid, simnum: '1',
         hasinrc: '1', pid: Math.floor(Math.random() * 1000).toString(),
         id: session.identityId, backup_token: session.backupToken,
-        token, mcc: session.mcc.padStart(3, '0'), mnc: session.mnc.padStart(3, '0'),
-        sim_mcc: '000', sim_mnc: '000', method: 'sms', reason: '', hasav: '1'
+        token, mcc: session.mcc.toString(), mnc: session.mnc.toString(),
+        sim_mcc: '000', sim_mnc: '000', method: 'sms', reason: '', hasav: '1',
+        platform: 'android'
     };
 
     const queryString = Object.keys(params).map(key => `${key}=${urlencode(params[key].toString())}`).join('&');
@@ -201,8 +203,9 @@ app.post('/start', authMiddleware, (req, res) => {
     const { cc, number, delay, maxRequests, mobileToken, concurrency, mcc: customMcc, mnc: customMnc } = req.body;
     if (!cc || !number) return res.status(400).json({ error: 'Missing parameters' });
 
-    const mcc = customMcc || mccMncData[cc] || '724';
-    const mnc = customMnc || '001';
+    const countryData = mccMncData[cc] || { mcc: '724', mnc: '01' };
+    const mcc = customMcc || countryData.mcc;
+    const mnc = customMnc || countryData.mnc;
 
     // Session-level parameters
     const identityKey = curve.generateKeyPair(crypto.randomBytes(32));
