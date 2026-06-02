@@ -32,7 +32,7 @@ function addLog(message) {
 // Utility functions for registration
 const MOBILE_REGISTRATION_ENDPOINT = 'https://v.whatsapp.net/v2';
 // Verified working version as of June 2026 for registration API v2
-const MOBILE_USERAGENT = 'WhatsApp/2.24.27.80 Android/14 Device/samsung-SM-S928B';
+const MOBILE_USERAGENT = 'WhatsApp/2.24.27.80 Android/14 Device/samsung-SM-S928B'
 
 function urlencode(str) {
     return str.replace(/-/g, '%2d').replace(/_/g, '%5f').replace(/~/g, '%7e');
